@@ -6,7 +6,7 @@ from telethon.tl.functions.messages import GetHistoryRequest
 from aiogram import Bot
 from app.database import get_all_users, get_channels, get_keywords
     
-client = TelegramClient('anon', token=os.getenv('YOUR_API_ID'), token=os.getenv('YOUR_API_HASH'))
+client = TelegramClient('anon', token=os.getenv('YOUR_API_ID'), token=os.getenv('YOUR_API_HASH')) #Разобраться с ключами!
 
 async def monitor_groups(bot: Bot):
     while True:
