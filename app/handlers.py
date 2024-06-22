@@ -4,7 +4,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.filters import CommandStart  #Импортируем функцию старт
 from aiogram.types import Message, CallbackQuery       #Импортируем функцию обработки сообщений
-from app.database import init_db, add_channels, remove_channels, add_keywords, remove_keywords, get_keywords
+from app.database import init_db, add_channels, remove_channels, add_keywords, remove_keywords, get_keywords, get_channels
 
 router = Router()
 init_db()
@@ -31,10 +31,23 @@ async def add_link_start(message: Message, state: FSMContext):
 async def add_link_process(message: Message, state: FSMContext):
     user_id = message.from_user.id
     chat_links = message.text.split(',')
-    await state.update_data(chat_links = message.text.split(','))
-    print(f'Ссылка: {chat_links}')
-    add_channels(user_id, chat_links)
-    await message.answer(f'Ссылки добавлены. Можете ввести еще ссылки или отправить "Завершить" для завершения.',reply_markup=kb.done)
+    
+    # Проверка ссылок
+    valid_links = []
+    invalid_links = []
+    for link in chat_links:
+        link = link.strip()
+        if link.startswith("https://t.me/"):
+            valid_links.append(link)
+        else:
+            invalid_links.append(link)
+    
+    if valid_links:
+        add_channels(user_id, valid_links)
+        await message.answer(f"Добавлены ссылки: {', '.join(valid_links)}",reply_markup=kb.done)
+    
+    if invalid_links:
+        await message.answer(f"Неверные ссылки: {', '.join(invalid_links)}. Пожалуйста, введите ссылки в формате 'https://t.me/your_chat'.")
 
 # Начало сценария для добавления ключевых слов
 @router.message(F.text == "Добавление ключевых слов")
@@ -73,7 +86,7 @@ async def remove_keyword_handler(message: Message):
     await message.answer("Ключевые слова удалены из мониторинга.",reply_markup=kb.main)
 
 # Команда для отображения ключевых слов
-@router.message(F.text == "Список ключевых слов")
+@router.message(F.text == "Список слов")
 async def list_keywords_handler(message: Message):
     user_id = message.from_user.id
     keywords = get_keywords(user_id)
@@ -81,3 +94,13 @@ async def list_keywords_handler(message: Message):
         await message.answer(f"Ваши ключевые слова: {', '.join(keywords)}",reply_markup=kb.main)
     else:
         await message.answer("У вас нет ключевых слов для мониторинга.",reply_markup=kb.main)
+
+        # Команда для отображения ключевых слов
+@router.message(F.text == "Список ссылок")
+async def list_links_handler(message: Message):
+    user_id = message.from_user.id
+    channels = get_channels(user_id)
+    if channels:
+        await message.answer(f"Ваши ссылки на чаты: {', '.join(channels)}",reply_markup=kb.main)
+    else:
+        await message.answer("У вас нет ссылок на чаты для мониторинга.",reply_markup=kb.main)

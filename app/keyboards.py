@@ -4,7 +4,7 @@ from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
 main = ReplyKeyboardMarkup(keyboard=[
     [KeyboardButton(text='Добавление ссылки'),KeyboardButton(text='Добавление ключевых слов')],
     [KeyboardButton(text='Удаление ссылки'),KeyboardButton(text='Удаление ключевых слов')],
-    [KeyboardButton(text='Список ключевых слов')],
+    [KeyboardButton(text='Список ссылок'),KeyboardButton(text='Список слов')],
 ],resize_keyboard=True,one_time_keyboard=True
 )
 

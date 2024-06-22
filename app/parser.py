@@ -1,87 +1,49 @@
 import logging
 import asyncio
 import os
-from telethon import TelegramClient
-from telethon.tl.functions.messages import GetHistoryRequest
+from dotenv import load_dotenv
+from threading import Thread
+from telethon import TelegramClient, events
+from app.database import get_channels, get_keywords, get_all_users
 from aiogram import Bot
-from app.database import get_all_users, get_channels, get_keywords
-    
-client = TelegramClient('anon', token=os.getenv('YOUR_API_ID'), token=os.getenv('YOUR_API_HASH')) #Разобраться с ключами!
 
-async def monitor_groups(bot: Bot):
-    while True:
-        users = get_all_users()  # Получаем всех пользователей
-        for user_id in users:
-            channels = get_channels(user_id)
-            keywords = get_keywords(user_id)
-            for channel in channels:
-                try:
-                    async with client:
-                        chat = await client.get_entity(channel)
-                        messages = await client(GetHistoryRequest(
-                            peer=chat,
-                            limit=100,
-                            offset_date=None,
-                            offset_id=0,
-                            max_id=0,
-                            min_id=0,
-                            add_offset=0,
-                            hash=0
-                        ))
-                        
-                        for message in messages.messages:
-                            if message.message and any(keyword.lower() in message.message.lower() for keyword in keywords):
-                                chat_info = f"Чат: {chat.title if chat.title else chat.id}"
-                                user_info = f"Пользователь: {message.sender_id}"
-                                message_link = f"https://t.me/{chat.username}/{message.id}"
-                                await bot.send_message(user_id, f"Найдено ключевое слово!\n{chat_info}\n{user_info}\n[Ссылка на сообщение]({message_link})", parse_mode='Markdown')
-                except Exception as e:
-                    logging.error(f"Ошибка при мониторинге канала {channel}: {e}")
-        await asyncio.sleep(60)  # Ждем 60 секунд перед следующим циклом
 
-async def start_monitoring(bot: Bot):
+async def notify_user(bot, user_id, message):
+    await bot.send_message(user_id, message, parse_mode='Markdown')
+
+async def monitor_groups(client, bot):
+    @client.on(events.NewMessage)
+    async def handler(event):
+        try:
+            chat_id = event.chat_id
+            message_text = event.message.message
+            user_id = event.sender_id
+
+            users = get_all_users()
+            for user in users:
+                channels = get_channels(user)
+                keywords = get_keywords(user)
+
+                if chat_id in channels:
+                    if any(keyword.lower() in message_text.lower() for keyword in keywords):
+                        chat_info = f"Чат: {chat_id}"
+                        user_info = f"Пользователь: {user_id}"
+                        message_link = f"https://t.me/{event.chat.username}/{event.message.id}"
+                        notification_message = f"Найдено ключевое слово!\n{chat_info}\n{user_info}\n[Ссылка на сообщение]({message_link})"
+                        await notify_user(bot, user, notification_message)
+
+        except Exception as e:
+            logging.error(f"Ошибка при мониторинге канала: {e}")
+
+async def start_telethon_client(loop, bot):
+    load_dotenv()
+    client = TelegramClient('session_name', os.getenv('API_ID'), os.getenv('API_HASH'), loop=loop)
     await client.start()
-    asyncio.create_task(monitor_groups(bot))
+    await monitor_groups(client, bot)
+    print("Начинаем мониторинг...")
+    await client.run_until_disconnected()
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# import logging
-# import asyncio
-# from aiogram import Bot
-# from app.database import get_all_users, get_channels, get_keywords
-
-# async def monitor_groups(bot: Bot):
-#     while True:
-#         users = get_all_users()  # Получаем всех пользователей
-#         for user_id in users:
-#             channels = get_channels(user_id)
-#             keywords = get_keywords(user_id)
-#             for channel in channels:
-#                 try:
-#                     # Получаем информацию о чате
-#                     chat = await bot.get_chat(channel)
-                    
-#                     # Получаем историю сообщений в чате
-#                     async for message in bot.get_updates(chat_id=chat.id, limit=100):
-#                         if message.message and message.message.text and any(keyword.lower() in message.message.text.lower() for keyword in keywords):
-#                             chat_info = f"Чат: {chat.title if chat.title else chat.id}"
-#                             user_info = f"Пользователь: {message.message.from_user.full_name} ({message.message.from_user.id})"
-#                             message_link = f"https://t.me/{chat.username}/{message.message.message_id}"
-#                             await bot.send_message(user_id, f"Найдено ключевое слово!\n{chat_info}\n{user_info}\n[Ссылка на сообщение]({message_link})", parse_mode='Markdown')
-#                 except Exception as e:
-#                     logging.error(f"Ошибка при мониторинге канала {channel}: {e}")
-#         await asyncio.sleep(60)  # Ждем 60 секунд перед следующим циклом
+def run_telethon_client(bot):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(start_telethon_client(loop, bot))
