@@ -1,63 +1,75 @@
 import logging
 import asyncio
 import os
-import json
-from telethon import connection
 from dotenv import load_dotenv
-from threading import Thread
 from telethon import TelegramClient, events
-from aiogram import Bot
+from app.database import get_channels, get_all_users, get_keywords
+
+
+load_dotenv()
+logging.basicConfig(level=logging.INFO)
+
+
+async def start_telegram_client(loop, queue):
+    users = get_all_users()  # Получаем список пользователей из базы данных
+
+    async with TelegramClient('session_name', os.getenv('API_ID'), os.getenv('API_HASH'), device_model="Linux 5.15.0", system_version="Ubuntu 20.04.6 LTS", loop=loop) as client:
+        for user_id in users:
+            channels = get_channels(user_id)  # Получаем каналы для текущего пользователя
+            for channel_link in channels:
+                @client.on(events.NewMessage(chats=channel_link))
+                async def handle_new_message(event):
+                    logging.info(f"Новое сообщение в канале {channel_link}: {event.message.message}")
+
+                    keywords = get_keywords(user_id)  # Получаем список ключевых слов из базы данных
+                    print(keywords)
+                    for keyword in keywords:
+                        if keyword.lower() in event.message.message.lower():
+                            logging.info(f"Найдено ключевое слово '{keyword}' в сообщении")
+                            # Дополнительные действия по вашему выбору, например, отправка уведомления или сохранение в базу данных
+
+                logging.info(f"Мониторинг канала {channel_link}")
+
+        logging.info("Сессия Telethon подключена")
+        
+        # Запускаем клиента Telegram и ждем событий
+        await client.run_until_disconnected()
+
+def run_telegram_monitoring():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    last_message = loop.run_until_complete(start_telegram_client(loop))
+    loop.close()
+    return last_message
 
 
 
-async def monitor_channel(client, channel_link):
-    try:
-        entity = await client.get_entity(channel_link)
-        channel_id = entity.id
+# Получение последнего сообщения!
+# async def start_telegram_client(loop):
+#     channel_link = "https://t.me/TestGroupsAleks"
 
-        @client.on(events.NewMessage)
-        async def handler(event):
-            print(event.chat.name, ':', event.text)
+#     async with TelegramClient('session_name', os.getenv('API_ID'), os.getenv('API_HASH'),  device_model="Linux 5.15.0", system_version="Ubuntu 20.04.6 LTS", loop=loop)  as client:
+#         entity = await client.get_entity(channel_link)
+#         channel_id = entity.id
+#         logging.info("Сессия Telethon подключена")
 
-            messages = client.get_messages(channel_id, 1)
-            print(messages)
-            try:
-                message = event.message
-                message_text = message.message if message else None
+#         logging.info(f"Получение последнего сообщения из канала {channel_id}")
+#         channel = PeerChannel(channel_id)
+#         history = await client(GetHistoryRequest(
+#             peer=channel,
+#             offset_id=0,
+#             offset_date=None,
+#             add_offset=0,
+#             limit=1,
+#             max_id=0,
+#             min_id=0,
+#             hash=0
+#         ))
 
-                logging.info(f"Получено сообщение: {message_text} в канале {channel_link}")
-
-                if message_text:
-                    logging.info(f"Сообщение: {message_text}")
-                else:
-                    logging.info("Сообщение не содержит текста.")
-            except Exception as e:
-                logging.error(f"Ошибка при обработке сообщения: {e}")
-
-    except Exception as e:
-        logging.error(f"Ошибка при мониторинге канала: {e}")
-
-async def start_telegram_client(loop):
-    client = TelegramClient('session_name', os.getenv('API_ID'), os.getenv('API_HASH'), loop=loop)
-    await client.start()
-    print("Сессия подключена...")
-    id_channel = 2208551919
-    
-    last_message = await client.get_entity(id_channel)
-    last_message2 = await client.get_input_entity(id_channel)
-    entity = await client.get_entity('someone')
-    last_message3 = await client.get_messages(id_channel, 0)
-    # async for message in client.iter_messages(id_channel):
-    #     print(message.id, message.text)
-
-
-    if last_message:
-        print(f"Последнее сообщение1: {last_message}")
-        print(f"Последнее сообщение2: {last_message2}")
-        print(f"Последнее сообщение3: {entity}")
-        print(f"Последнее сообщение4: {last_message3}")
-    else:
-        print("Сообщений нет")
-
-    print("Начинаем мониторинг...")
-    await client.run_until_disconnected()
+#         if history.messages:
+#             message = history.messages[0]
+#             logging.info(f"Получено последнее сообщение: {message.message}")
+#             return message
+#         else:
+#             logging.info("Сообщений нет")
+#             return None

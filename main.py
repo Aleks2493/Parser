@@ -17,8 +17,10 @@ async def main():
     bot = Bot(token=os.getenv('TELEGRAM_TOKEN'), default=DefaultBotProperties(parse_mode='HTML'))
     dp = Dispatcher(storage=MemoryStorage())
     dp.include_router(router)
-    telethon_thread = Thread(target=run_telegram_monitoring, daemon=True)# args=(bot,),
+
+    telethon_thread = Thread(target=run_telegram_monitoring, daemon=True)
     telethon_thread.start()
+
     await dp.start_polling(bot)
 
 if __name__ == '__main__':
