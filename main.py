@@ -7,8 +7,8 @@ from aiogram import Bot, Dispatcher
 from app.handlers import router
 from aiogram.client.bot import DefaultBotProperties
 from aiogram.fsm.storage.memory import MemoryStorage
-from app.parser import run_telegram_monitoring
-
+from app.parser import start_telegram_client
++
 # Включаем логирование
 logging.basicConfig(level=logging.INFO)
 
@@ -18,7 +18,7 @@ async def main():
     dp = Dispatcher(storage=MemoryStorage())
     dp.include_router(router)
 
-    telethon_thread = Thread(target=run_telegram_monitoring, daemon=True)
+    telethon_thread = Thread(target=lambda: asyncio.run(start_telegram_client()), daemon=True)
     telethon_thread.start()
 
     await dp.start_polling(bot)
