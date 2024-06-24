@@ -22,16 +22,26 @@ async def start_telegram_client(loop):
                 @client.on(events.NewMessage(chats=channel_link))
                 async def handle_new_message(event):
                     logging.info(f"Новое сообщение в канале {channel_link}: {event.message.message}")
-
                     keywords = get_keywords(user_id)  # Получаем список ключевых слов из базы данных
                     for keyword in keywords:
                         if keyword.lower() in event.message.message.lower():
-                            logging.info(f"Найдено ключевое слово '{keyword}' в сообщении")
-
-
-                            # Отправляем сообщение в бота
-                            await send_to_bot(user_id, channel_link, event.message.message)
-
+                            try:
+                                # Получаем информацию о канале и отправителе
+                                channel = await client.get_entity(channel_link)
+                                sender = await client.get_entity(event.message.sender_id)
+                                
+								# Формируем сообщение
+                                message_text = f"Новое сообщение в канале: {channel.title}, от пользователя: {sender.username if sender.username else sender.first_name}: {event.message.message}"
+                                
+								# Формируем ссылку на сообщение
+                                message_link = f"https://t.me/{channel.username}/{event.message.id}"
+                                
+								# Отправляем сообщение в бота
+                                await send_to_bot(user_id, message_text, message_link)
+                            except Exception as e:
+                                logging.error(f"Ошибка при отправке сообщения в бота: {e}")
+                                
+						
                 logging.info(f"Мониторинг канала {channel_link}")
 
         logging.info("Сессия Telethon подключена")
@@ -39,12 +49,12 @@ async def start_telegram_client(loop):
         # Запускаем клиента Telegram и ждем событий
         await client.run_until_disconnected()
 
-async def send_to_bot(user_id, channel_link, message):
+async def send_to_bot(user_id, message_text, message_link):
     # Функция для отправки сообщения в бота
 
     bot = Bot(token=TELEGRAM_TOKEN)
     try:
-        await bot.send_message(user_id, f"Новое сообщение в канале: {channel_link}, от пользователя:{user_id}:\n{message}")
+        await bot.send_message(user_id, f"{message_text}\n\nСсылка на сообщение: {message_link}")
         logging.info(f"Сообщение успешно отправлено в бота пользователю {user_id}")
     except Exception as e:
         logging.error(f"Ошибка при отправке сообщения в бота: {e}")
