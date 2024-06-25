@@ -1,6 +1,5 @@
 import sqlite3
 
-
 def init_db():
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
@@ -35,6 +34,9 @@ def remove_channels(user_id, chat_links):
     for link in chat_links:
         cursor.execute('DELETE FROM channels WHERE user_id = ? AND chat_link = ?', (user_id, link.strip()))
     conn.commit()
+    # Проверка после удаления
+    remaining_channels = get_channels(user_id)
+    print(f"Оставшиеся ссылки на каналы для пользователя {user_id}: {remaining_channels}")
     conn.close()
 
 def get_channels(user_id):
@@ -59,6 +61,9 @@ def remove_keywords(user_id, keywords):
     for keyword in keywords:
         cursor.execute('DELETE FROM keywords WHERE user_id = ? AND keyword = ?', (user_id, keyword.strip()))
     conn.commit()
+    # Проверка после удаления
+    remaining_keywords = get_keywords(user_id)
+    print(f"Оставшиеся ключевые слова для пользователя {user_id}: {remaining_keywords}")
     conn.close()
 
 def get_keywords(user_id):
