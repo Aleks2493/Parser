@@ -1,20 +1,21 @@
 import sqlite3
+import logging
 
 def init_db():
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS channels (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
-        chat_link TEXT
+        chat_link TEXT,
+        PRIMARY KEY (user_id, chat_link)
     )
     ''')
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS keywords (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
-        keyword TEXT
+        keyword TEXT,
+        PRIMARY KEY (user_id, keyword)
     )
     ''')
     conn.commit()
@@ -24,55 +25,31 @@ def add_channels(user_id, chat_links):
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     for link in chat_links:
-        cursor.execute('INSERT INTO channels (user_id, chat_link) VALUES (?, ?)', (user_id, link.strip()))
+        cursor.execute('INSERT OR IGNORE INTO channels (user_id, chat_link) VALUES (?, ?)', (user_id, link.strip()))
     conn.commit()
     conn.close()
-
-def remove_channels(user_id, chat_links):
-    conn = sqlite3.connect('database.db')
-    cursor = conn.cursor()
-    for link in chat_links:
-        cursor.execute('DELETE FROM channels WHERE user_id = ? AND chat_link = ?', (user_id, link.strip()))
-    conn.commit()
-    # Проверка после удаления
-    remaining_channels = get_channels(user_id)
-    print(f"Оставшиеся ссылки на каналы для пользователя {user_id}: {remaining_channels}")
-    conn.close()
-
-def get_channels(user_id):
-    conn = sqlite3.connect('database.db')
-    cursor = conn.cursor()
-    cursor.execute('SELECT chat_link FROM channels WHERE user_id = ?', (user_id,))
-    channels = [row[0] for row in cursor.fetchall()]
-    conn.close()
-    return channels
 
 def add_keywords(user_id, keywords):
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
     for keyword in keywords:
-        cursor.execute('INSERT INTO keywords (user_id, keyword) VALUES (?, ?)', (user_id, keyword.strip()))
+        cursor.execute('INSERT OR IGNORE INTO keywords (user_id, keyword) VALUES (?, ?)', (user_id, keyword.strip()))
     conn.commit()
     conn.close()
 
-def remove_keywords(user_id, keywords):
+def remove_all_channels(user_id):
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
-    for keyword in keywords:
-        cursor.execute('DELETE FROM keywords WHERE user_id = ? AND keyword = ?', (user_id, keyword.strip()))
+    cursor.execute('DELETE FROM channels WHERE user_id = ?', (user_id,))
     conn.commit()
-    # Проверка после удаления
-    remaining_keywords = get_keywords(user_id)
-    print(f"Оставшиеся ключевые слова для пользователя {user_id}: {remaining_keywords}")
     conn.close()
 
-def get_keywords(user_id):
+def remove_all_keywords(user_id):
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
-    cursor.execute('SELECT keyword FROM keywords WHERE user_id = ?', (user_id,))
-    keywords = [row[0] for row in cursor.fetchall()]
+    cursor.execute('DELETE FROM keywords WHERE user_id = ?', (user_id,))
+    conn.commit()
     conn.close()
-    return keywords
 
 def get_all_users():
     conn = sqlite3.connect('database.db')
@@ -80,4 +57,24 @@ def get_all_users():
     cursor.execute("SELECT DISTINCT user_id FROM channels")
     users = cursor.fetchall()
     conn.close()
+    logging.info(f"Получены пользователи: {users}")
     return [user[0] for user in users]
+
+def get_channels(user_id):
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT chat_link FROM channels WHERE user_id = ?', (user_id,))
+    channels = [row[0] for row in cursor.fetchall()]
+    conn.close()
+    logging.info(f"Каналы для пользователя {user_id}: {channels}")
+    return channels
+
+def get_keywords(user_id):
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT keyword FROM keywords WHERE user_id = ?', (user_id,))
+    keywords = [row[0] for row in cursor.fetchall()]
+    conn.close()
+    logging.info(f"Ключевые слова для пользователя {user_id}: {keywords}")
+    return keywords
+

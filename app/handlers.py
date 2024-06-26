@@ -4,13 +4,13 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.filters import CommandStart
 from aiogram.types import Message, CallbackQuery
-from app.database import init_db, add_channels, remove_channels, add_keywords, remove_keywords, get_keywords, get_channels
+from app.database import init_db, add_channels, add_keywords, get_keywords, get_channels, remove_all_channels, remove_all_keywords
 
 router = Router()
 init_db()
 
 class AddLinkStates(StatesGroup):
-    link = State()
+    link = State()  
 
 class AddKeywordStates(StatesGroup):
     keyword = State()
@@ -52,7 +52,7 @@ async def add_keyword_process(message: Message, state: FSMContext):
     user_id = message.from_user.id
     keywords = message.text.split(',')
     add_keywords(user_id, keywords)
-    await message.answer(f'Ключевые слова добавлены. Можете ввести еще слова или нажмите "Завершить".', reply_markup=kb.done)
+    await message.answer(f'Ключевые слова добавлены: [{', '.join(keywords)}]. Можете ввести еще слова или нажмите "Завершить".', reply_markup=kb.done)
 
 @router.callback_query(F.data == 'end')
 async def add_link_done(callback: CallbackQuery, state: FSMContext):
@@ -61,40 +61,36 @@ async def add_link_done(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer(f"Добавление завершено.", reply_markup=kb.main)
 
 @router.message(F.text == "Удаление ссылки")
-async def remove_link_handler(message: Message):
-    user_id = message.from_user.id
-    chat_links = message.text.replace('Удаление ссылки', '').strip().split(',')
+async def remove_all_links_confirm(message: Message):
+    await message.answer("Точно всё удалить? Вернуться будет невозможно!", reply_markup=kb.confirmation_links)
 
-    # Проверка и отладка
-    print(f"Пользователь: {user_id}")
-    print(f"Исходное сообщение: {message.text}")
-    print(f"Ссылки для удаления: {chat_links}")
+@router.callback_query(F.data == 'confirm_delete_links')
+async def confirm_delete_links(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    remove_all_channels(user_id)
+    await callback.message.answer("Все ссылки на чаты удалены.", reply_markup=kb.main)
+    await callback.answer()
 
-    existing_channels = get_channels(user_id)
-    print(f"Текущие ссылки на каналы для пользователя {user_id}: {existing_channels}")
-
-    links_to_remove = [link.strip() for link in chat_links if link.strip() in existing_channels]
-
-    if links_to_remove:
-        remove_channels(user_id, links_to_remove)
-        await message.answer(f"Ссылки на чаты удалены: {', '.join(links_to_remove)}", reply_markup=kb.main)
-    else:
-        await message.answer("Указанные ссылки на чаты не найдены в вашем списке.", reply_markup=kb.main)
-
-
+@router.callback_query(F.data == 'cancel_delete_links')
+async def cancel_delete_links(callback: CallbackQuery):
+    await callback.message.answer("Удаление отменено.", reply_markup=kb.main)
+    await callback.answer()
 
 @router.message(F.text == "Удаление ключевых слов")
-async def remove_keyword_handler(message: Message):
-    user_id = message.from_user.id
-    keywords = message.text.split(',')[1:]
-    existing_keywords = get_keywords(user_id)
-    print(f"Текущие ключевые слова для пользователя {user_id}: {existing_keywords}")
-    keywords_to_remove = [keyword.strip() for keyword in keywords if keyword.strip() in existing_keywords]
-    if keywords_to_remove:
-        remove_keywords(user_id, keywords_to_remove)
-        await message.answer(f"Ключевые слова удалены: {', '.join(keywords_to_remove)}", reply_markup=kb.main)
-    else:
-        await message.answer("Указанные ключевые слова не найдены в вашем списке.", reply_markup=kb.main)
+async def remove_all_keywords_confirm(message: Message):
+    await message.answer("Точно всё удалить? Вернуться будет невозможно!", reply_markup=kb.confirmation_keywords)
+
+@router.callback_query(F.data == 'confirm_delete_keywords')
+async def confirm_delete_keywords(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    remove_all_keywords(user_id)
+    await callback.message.answer("Все ключевые слова удалены.", reply_markup=kb.main)
+    await callback.answer()
+
+@router.callback_query(F.data == 'cancel_delete_keywords')
+async def cancel_delete_keywords(callback: CallbackQuery):
+    await callback.message.answer("Удаление отменено.", reply_markup=kb.main)
+    await callback.answer()
 
 @router.message(F.text == "Список слов")
 async def list_keywords_handler(message: Message):
