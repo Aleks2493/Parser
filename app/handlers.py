@@ -52,7 +52,7 @@ async def add_keyword_process(message: Message, state: FSMContext):
     user_id = message.from_user.id
     keywords = message.text.split(',')
     add_keywords(user_id, keywords)
-    await message.answer(f'Ключевые слова добавлены: [{', '.join(keywords)}]. Можете ввести еще слова или нажмите "Завершить".', reply_markup=kb.done)
+    await message.answer(f'Ключевые слова добавлены: {", ".join(keywords)}. Можете ввести еще слова или нажмите "Завершить".', reply_markup=kb.done)
 
 @router.callback_query(F.data == 'end')
 async def add_link_done(callback: CallbackQuery, state: FSMContext):
